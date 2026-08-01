@@ -183,7 +183,7 @@ function header(data, compact = false) {
   const status = statusOf(data);
   return { type: 'stack', direction: 'row', alignItems: 'center', gap: compact ? 6 : 7, children: [
     icon('chart.pie.fill', C.accent, compact ? 14 : 15),
-    text(data.name || 'SUBSCRIPTION', compact ? 10 : 11, C.dim, 'bold', { minScale: 0.62 }),
+    text(data.name || 'SUBSCRIPTION', compact ? 10 : 12, compact ? C.dim : C.text, 'bold', { minScale: 0.62 }),
     { type: 'spacer' },
     { type: 'stack', direction: 'row', alignItems: 'center', gap: compact ? 0 : 5, padding: compact ? [3, 5] : [3, 7], backgroundColor: C.panel, borderRadius: 4, children: [
       { type: 'stack', width: 6, height: 6, borderRadius: 3, backgroundColor: status.color, children: [] },
@@ -211,10 +211,10 @@ function bytesToBase64(bytes) {
 async function loadGaugeImage(ctx, traffic) {
   const used = usedPercentValue(traffic); if (used == null) return '';
   const display = formatPercentValue(used), rounded = Number(used.toFixed(2));
-  const cacheKey = `egern.widget.pro.gauge.classic.v3.${rounded}`;
+  const cacheKey = `egern.widget.pro.gauge.classic.v4.${rounded}`;
   const cached = ctx.storage?.get(cacheKey); if (cached) return cached;
   const fontSize = display.length >= 7 ? 28 : display.length >= 6 ? 31 : 36;
-  const chart = { type: 'doughnut', data: { datasets: [{ data: [Math.max(0.0001, used), Math.max(0.0001, 100 - used)], backgroundColor: ['#7446D8', '#D0D0D8'], borderColor: ['rgba(0,0,0,0)', 'rgba(0,0,0,0)'], borderWidth: 1 }] }, options: { responsive: false, animation: false, rotation: 2.35619449, circumference: 4.71238898, cutoutPercentage: 82, legend: { display: false }, tooltips: { enabled: false }, plugins: { datalabels: { display: false }, doughnutlabel: { labels: [
+  const chart = { type: 'doughnut', data: { datasets: [{ data: [Math.max(0.0001, used), Math.max(0.0001, 100 - used)], backgroundColor: ['#7446D8', 'rgba(208,208,216,0.78)'], borderColor: ['rgba(0,0,0,0)', 'rgba(0,0,0,0)'], borderWidth: 1 }] }, options: { responsive: false, animation: false, rotation: 2.35619449, circumference: 4.71238898, cutoutPercentage: 82, legend: { display: false }, tooltips: { enabled: false }, plugins: { datalabels: { display: false }, doughnutlabel: { labels: [
     { text: ' ', font: { size: 12 }, color: 'rgba(0,0,0,0)' },
     { text: display, font: { size: fontSize, weight: 'bold', family: 'Helvetica Neue' }, color: '#7446D8' },
     { text: ' ', font: { size: 5 }, color: 'rgba(0,0,0,0)' },
@@ -251,7 +251,7 @@ function mediumWidget(data, ctx) {
           text('剩余天数', 8, C.dim, 'medium', { width: 72, textAlign: 'center' }),
           { type: 'stack', width: 10, children: [] }
         ] },
-        { type: 'stack', height: 5, children: [] },
+        { type: 'stack', height: 3, children: [] },
         { type: 'stack', direction: 'row', alignItems: 'center', width: 200, children: [
           inlineMetric('到期', formatDate(traffic.expireAt), 0.68),
           { type: 'spacer' },
