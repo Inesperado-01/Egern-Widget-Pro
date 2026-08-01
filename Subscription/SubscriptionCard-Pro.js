@@ -369,6 +369,16 @@ function inlineMetric(label, value, minScale = 0.72) {
   };
 }
 
+function daysMetric(value) {
+  return {
+    type: 'stack', direction: 'column', alignItems: 'center', gap: 1, width: 72,
+    children: [
+      text('剩余天数', 9, C.dim, 'medium'),
+      text(value, 12, C.text, 'semibold', { minScale: 0.72 })
+    ]
+  };
+}
+
 function bytesToBase64(bytes) {
   const alphabet = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/';
   let output = '';
@@ -390,7 +400,7 @@ async function loadGaugeImage(ctx, traffic) {
 
   const display = formatPercentValue(used);
   const rounded = Number(used.toFixed(2));
-  const cacheKey = `egern.widget.pro.gauge.classic.v1.${rounded}`;
+  const cacheKey = `egern.widget.pro.gauge.classic.v2.${rounded}`;
   const cached = ctx.storage?.get(cacheKey);
   if (cached) return cached;
 
@@ -419,7 +429,7 @@ async function loadGaugeImage(ctx, traffic) {
           labels: [
             { text: ' ', font: { size: 12 }, color: 'rgba(0,0,0,0)' },
             { text: display, font: { size: fontSize, weight: 'bold', family: 'Helvetica Neue' }, color: '#7446D8' },
-            { text: '已用', font: { size: 14, family: 'Helvetica Neue' }, color: '#7B7B84' }
+            { text: '已用', font: { size: 18, weight: 'bold', family: 'Helvetica Neue' }, color: '#7B7B84' }
           ]
         }
       }
@@ -451,7 +461,7 @@ function fallbackGauge(traffic, size = 108) {
       { type: 'spacer' },
       icon('gauge.with.dots.needle.33percent', C.accent, 52),
       text(used == null ? '--' : formatPercentValue(used), 15, C.text, 'bold', { minScale: 0.68 }),
-      text('已用', 9, C.dim, 'semibold'),
+      text('已用', 11, C.dim, 'semibold'),
       { type: 'spacer' }
     ]
   };
@@ -509,11 +519,11 @@ function mediumWidget(data, ctx) {
               }), 200),
               leadingLine(text('剩余流量', 10, C.dim, 'medium'), 200),
               {
-                type: 'stack', direction: 'row', alignItems: 'center', width: 200,
+                type: 'stack', direction: 'row', alignItems: 'end', width: 200,
                 children: [
                   inlineMetric('已用', optionalBytes(traffic.used)),
                   { type: 'spacer' },
-                  inlineMetric('剩余', daysText)
+                  daysMetric(daysText)
                 ]
               },
               leadingLine(inlineMetric('到期', formatDate(traffic.expireAt), 0.68), 200),
