@@ -211,14 +211,14 @@ function bytesToBase64(bytes) {
 async function loadGaugeImage(ctx, traffic) {
   const used = usedPercentValue(traffic); if (used == null) return '';
   const display = formatPercentValue(used), rounded = Number(used.toFixed(2));
-  const cacheKey = `egern.widget.pro.gauge.classic.v4.${rounded}`;
+  const cacheKey = `egern.widget.pro.gauge.classic.v5.${rounded}`;
   const cached = ctx.storage?.get(cacheKey); if (cached) return cached;
   const fontSize = display.length >= 7 ? 28 : display.length >= 6 ? 31 : 36;
   const chart = { type: 'doughnut', data: { datasets: [{ data: [Math.max(0.0001, used), Math.max(0.0001, 100 - used)], backgroundColor: ['#7446D8', 'rgba(208,208,216,0.78)'], borderColor: ['rgba(0,0,0,0)', 'rgba(0,0,0,0)'], borderWidth: 1 }] }, options: { responsive: false, animation: false, rotation: 2.35619449, circumference: 4.71238898, cutoutPercentage: 82, legend: { display: false }, tooltips: { enabled: false }, plugins: { datalabels: { display: false }, doughnutlabel: { labels: [
     { text: ' ', font: { size: 12 }, color: 'rgba(0,0,0,0)' },
-    { text: display, font: { size: fontSize, weight: 'bold', family: 'Helvetica Neue' }, color: '#7446D8' },
+    { text: display, font: { size: fontSize, weight: 'bold', family: 'Helvetica Neue' }, color: '#8658EC' },
     { text: ' ', font: { size: 5 }, color: 'rgba(0,0,0,0)' },
-    { text: '已用', font: { size: 20, weight: 'bold', family: 'Helvetica Neue' }, color: '#7B7B84' }
+    { text: '已用', font: { size: 20, weight: 'bold', family: 'Helvetica Neue' }, color: '#9696A0' }
   ] } } } };
   const response = await ctx.http.post(GAUGE_API, { timeout: 8000, headers: { 'Content-Type': 'application/json' }, body: { version: '2', width: 280, height: 200, devicePixelRatio: 2, format: 'png', backgroundColor: 'transparent', chart } });
   if (response.status < 200 || response.status >= 300) throw new Error(`Gauge HTTP ${response.status}`);
