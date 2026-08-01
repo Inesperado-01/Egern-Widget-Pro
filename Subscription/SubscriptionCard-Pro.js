@@ -311,8 +311,8 @@ function header(data, compact = false) {
       text(data.name || 'SUBSCRIPTION', compact ? 10 : 11, C.dim, 'bold', { minScale: 0.64 }),
       { type: 'spacer' },
       {
-        type: 'stack', direction: 'row', alignItems: 'center', gap: compact ? 0 : 4,
-        padding: compact ? [3, 5] : [3, 6], backgroundColor: C.panel, borderRadius: 4,
+        type: 'stack', direction: 'row', alignItems: 'center', gap: compact ? 0 : 3,
+        padding: compact ? [3, 5] : [2, 5], backgroundColor: C.panel, borderRadius: 4,
         children: [
           { type: 'stack', width: 6, height: 6, borderRadius: 3, backgroundColor: status.color, children: [] },
           ...(compact ? [] : [text(status.label, 9, C.text, 'semibold')])
@@ -346,6 +346,16 @@ function metric(label, value) {
     children: [
       text(label, 9, C.dim, 'semibold'),
       text(value, 12, C.text, 'semibold', { minScale: 0.68 })
+    ]
+  };
+}
+
+function mediumMetric(label, value) {
+  return {
+    type: 'stack', direction: 'column', alignItems: 'center', gap: 3, flex: 1,
+    children: [
+      text(label, 10, C.dim, 'semibold'),
+      text(value, 13, C.text, 'bold', { minScale: 0.72 })
     ]
   };
 }
@@ -414,7 +424,7 @@ function mediumWidget(data, ctx) {
         type: 'stack', direction: 'row', alignItems: 'end', gap: 12,
         children: [
           {
-            type: 'stack', direction: 'column', gap: 2, flex: 1,
+            type: 'stack', direction: 'column', alignItems: 'start', gap: 2, flex: 1,
             children: [
               text(formatBytes(traffic.remaining), 29, C.text, 'bold', {
                 font: { size: 29, weight: 'bold', family: 'Menlo' }, minScale: 0.62
@@ -425,24 +435,23 @@ function mediumWidget(data, ctx) {
           {
             type: 'stack', direction: 'column', alignItems: 'end', gap: 2,
             children: [
-              text(formatPercent(traffic), 18, C.text, 'bold', { minScale: 0.72 }),
+              text(formatPercent(traffic), 16, C.text, 'bold', { minScale: 0.72 }),
               text('剩余比例', 9, C.dim, 'semibold')
             ]
           }
         ]
       },
-      { type: 'stack', height: 2, children: [] },
       progressOrNote(traffic, 320),
-      { type: 'stack', height: 5, children: [] },
+      { type: 'stack', height: 2, children: [] },
       {
         type: 'stack', direction: 'row', gap: 12,
         children: [
-          metric('已用', optionalBytes(traffic.used)),
-          metric('套餐总量', totalLabel(traffic)),
-          metric('剩余天数', daysText)
+          mediumMetric('已用', optionalBytes(traffic.used)),
+          mediumMetric('套餐总量', totalLabel(traffic)),
+          mediumMetric('剩余天数', daysText)
         ]
       },
-      { type: 'spacer' },
+      { type: 'stack', height: 3, children: [] },
       {
         type: 'stack', direction: 'row', children: [
           text(updateLabel(data), 9, C.dim, 'medium'),
