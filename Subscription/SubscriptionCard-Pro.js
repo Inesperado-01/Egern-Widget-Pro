@@ -1,14 +1,15 @@
 /**
  * Egern Widget Pro · Subscription Card Pro
- * Based on the public Dingyue widget by Aswoth/Keek.
  *
  * Required:
- *   SUBSCRIPTION_URL=https://example.com/subscribe?token=...
+ *   url1=https://example.com/subscribe?token=...
  * Optional:
- *   SUBSCRIPTION_NAME=My Subscription
- *   REFRESH_HOURS=2
- *   SUBSCRIPTION_USER_AGENT=clash.meta
- *   PLAN_TOTAL_GB=100
+ *   name1=My Subscription
+ *   refreshHours=2
+ *   ua=clash.meta
+ *   totalGB=100
+ *
+ * Environment variable names are case-insensitive.
  */
 
 const C = {
@@ -26,8 +27,21 @@ const C = {
 
 const GAUGE_API = 'https://quickchart.io/chart';
 
+function envMap(ctx) {
+  const result = {};
+  for (const [key, value] of Object.entries(ctx.env || {})) {
+    result[String(key).toLowerCase()] = value;
+  }
+  return result;
+}
+
+function envValue(ctx, key, fallback = '') {
+  const value = envMap(ctx)[String(key).toLowerCase()];
+  return value == null || value === '' ? fallback : value;
+}
+
 function numberEnv(ctx, key, fallback, min, max) {
-  const value = Number(ctx.env?.[key]);
+  const value = Number(envValue(ctx, key, fallback));
   if (!Number.isFinite(value)) return fallback;
   return Math.min(max, Math.max(min, value));
 }
@@ -39,7 +53,7 @@ function hashString(value) {
 }
 
 function storageKey(url) {
-  return `egern.widget.pro.subscription.v1.${hashString(url)}`;
+  return `egern.widget.pro.subscription.v2.${hashString(url)}`;
 }
 
 function readHeader(headers, name) {
@@ -59,6 +73,7 @@ function parseUserInfo(raw) {
     const value = Number(part.slice(index + 1).trim());
     if (Number.isFinite(value)) values[key] = value;
   });
+
   if (![values.upload, values.download, values.total].every(Number.isFinite)) return null;
 
   const upload = Math.max(0, values.upload);
@@ -67,6 +82,7 @@ function parseUserInfo(raw) {
   const used = upload + download;
   const unlimited = total === 0;
   const expireValue = Number(values.expire) || 0;
+
   return {
     upload,
     download,
@@ -111,21 +127,19 @@ function parseBodyInfo(body) {
     remaining,
     unlimited: false,
     expireAt,
-    partial: !Number.isFinite(total),
-    source: 'body'
+    partial: !Number.isFinite(total)
   };
 }
 
 function applyPlanTotal(ctx, traffic) {
-  const configured = String(ctx.env?.PLAN_TOTAL_GB || '').trim();
-  const planGB = configured ? Number(configured) : 100;
+  const planGB = Number(envValue(ctx, 'totalGB', 100));
   if (!traffic || Number.isFinite(traffic.total) || !Number.isFinite(planGB) || planGB <= 0) return traffic;
   const total = planGB * (1024 ** 3);
   return { ...traffic, total, used: Math.max(0, total - traffic.remaining), partial: false, totalEstimated: true };
 }
 
 async function fetchSubscription(ctx, url) {
-  const customUA = String(ctx.env?.SUBSCRIPTION_USER_AGENT || '').trim();
+  const customUA = String(envValue(ctx, 'ua', '')).trim();
   const userAgents = [...new Set([customUA, 'clash.meta', 'clash-verge/v2.2.3', 'Surge/5.0', 'Quantumult%20X/1.5.0'].filter(Boolean))];
 
   const extract = async response => {
@@ -136,7 +150,11 @@ async function fetchSubscription(ctx, url) {
 
   for (const userAgent of userAgents) {
     try {
-      const response = await ctx.http.get(url, { timeout: 8000, redirect: 'manual', headers: { 'User-Agent': userAgent } });
+      const response = await ctx.http.get(url, {
+        timeout: 8000,
+        redirect: 'manual',
+        headers: { 'User-Agent': userAgent }
+      });
       const direct = await extract(response);
       if (direct) return direct;
 
@@ -154,12 +172,13 @@ async function fetchSubscription(ctx, url) {
       // Try another common subscription client identity.
     }
   }
+
   throw new Error('订阅未返回可识别的流量信息');
 }
 
 async function loadData(ctx) {
-  const url = String(ctx.env?.SUBSCRIPTION_URL || '').trim();
-  const name = String(ctx.env?.SUBSCRIPTION_NAME || 'SUBSCRIPTION').trim();
+  const url = String(envValue(ctx, 'url1', '')).trim();
+  const name = String(envValue(ctx, 'name1', 'SUBSCRIPTION')).trim();
   if (!url) return { mode: 'setup', name };
 
   const key = storageKey(url);
@@ -185,6 +204,7 @@ function statusOf(data) {
   if (data.mode === 'setup') return { label: 'SETUP', color: C.dim };
   if (data.mode === 'error') return { label: 'ERROR', color: C.fail };
   if (data.mode === 'stale') return { label: 'STALE', color: C.warn };
+
   const traffic = data.traffic;
   const days = daysRemaining(traffic.expireAt);
   const ratio = traffic.unlimited || !Number.isFinite(traffic.total) || traffic.total <= 0 ? null : traffic.remaining / traffic.total;
@@ -245,7 +265,7 @@ async function loadGaugeImage(ctx, traffic) {
   const remaining = percentRemaining(traffic);
   if (remaining == null) return '';
   const value = Math.round(remaining);
-  const cacheKey = `egern.widget.pro.gauge.v1.${value}`;
+  const cacheKey = `egern.widget.pro.gauge.v2.${value}`;
   const cached = ctx.storage?.get(cacheKey);
   if (cached) return cached;
 
@@ -354,13 +374,17 @@ function metric(label, value, color = C.text) {
   };
 }
 
+function refreshDate(ctx) {
+  const refreshHours = numberEnv(ctx, 'refreshHours', 2, 0.5, 24);
+  return new Date(Date.now() + refreshHours * 3600000).toISOString();
+}
+
 function emptyWidget(data, family, ctx) {
   const isSmall = family === 'systemSmall';
-  const refreshHours = numberEnv(ctx, 'REFRESH_HOURS', 2, 0.5, 24);
   const setup = data.mode === 'setup';
   return {
     type: 'widget', backgroundColor: C.bg, padding: isSmall ? 14 : 16, gap: 8,
-    refreshAfter: new Date(Date.now() + refreshHours * 3600000).toISOString(),
+    refreshAfter: refreshDate(ctx),
     children: [
       header(data, isSmall), { type: 'spacer' },
       {
@@ -368,7 +392,7 @@ function emptyWidget(data, family, ctx) {
         children: [
           icon(setup ? 'link.badge.plus' : 'exclamationmark.triangle', setup ? C.dim : C.fail, 22),
           text(setup ? '等待订阅地址' : '无法读取流量', isSmall ? 13 : 15, C.text, 'semibold'),
-          text(setup ? '请配置 SUBSCRIPTION_URL' : data.error, 9, C.dim, 'medium', { minScale: 0.65 })
+          text(setup ? '请配置 url1' : data.error, 9, C.dim, 'medium', { minScale: 0.65 })
         ]
       },
       { type: 'spacer' }
@@ -380,10 +404,9 @@ function smallWidget(data, ctx) {
   if (!data.traffic) return emptyWidget(data, 'systemSmall', ctx);
   const traffic = data.traffic;
   const percent = percentRemaining(traffic);
-  const refreshHours = numberEnv(ctx, 'REFRESH_HOURS', 2, 0.5, 24);
   return {
     type: 'widget', backgroundColor: C.bg, padding: 14, gap: 7,
-    refreshAfter: new Date(Date.now() + refreshHours * 3600000).toISOString(),
+    refreshAfter: refreshDate(ctx),
     children: [
       header(data, true),
       { type: 'spacer' },
@@ -405,11 +428,10 @@ function mediumWidget(data, ctx) {
   if (!data.traffic) return emptyWidget(data, 'systemMedium', ctx);
   const traffic = data.traffic;
   const days = daysRemaining(traffic.expireAt);
-  const refreshHours = numberEnv(ctx, 'REFRESH_HOURS', 2, 0.5, 24);
   const daysText = days == null ? '长期' : `${Math.max(0, days)} 天`;
   return {
     type: 'widget', backgroundColor: C.bg, padding: [13, 16, 13, 16], gap: 8,
-    refreshAfter: new Date(Date.now() + refreshHours * 3600000).toISOString(),
+    refreshAfter: refreshDate(ctx),
     children: [
       header(data),
       {
@@ -448,11 +470,10 @@ function largeWidget(data, ctx) {
   const traffic = data.traffic;
   const percent = percentRemaining(traffic);
   const days = daysRemaining(traffic.expireAt);
-  const refreshHours = numberEnv(ctx, 'REFRESH_HOURS', 2, 0.5, 24);
   const daily = days && days > 0 && Number.isFinite(traffic.remaining) ? traffic.remaining / days : null;
   return {
     type: 'widget', backgroundColor: C.bg, padding: 16, gap: 10,
-    refreshAfter: new Date(Date.now() + refreshHours * 3600000).toISOString(),
+    refreshAfter: refreshDate(ctx),
     children: [
       header(data),
       {
@@ -524,9 +545,11 @@ function lockWidget(data, family) {
 export default async function(ctx) {
   const data = await loadData(ctx);
   const family = ctx.widgetFamily || 'systemMedium';
+
   if (family === 'systemMedium' && data.traffic) {
     try { data.gaugeImage = await loadGaugeImage(ctx, data.traffic); } catch { data.gaugeImage = ''; }
   }
+
   if (family.startsWith('accessory')) return lockWidget(data, family);
   if (family === 'systemSmall') return smallWidget(data, ctx);
   if (family === 'systemLarge' || family === 'systemExtraLarge') return largeWidget(data, ctx);
