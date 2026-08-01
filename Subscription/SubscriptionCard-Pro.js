@@ -246,12 +246,14 @@ function mediumWidget(data, ctx) {
         { type: 'stack', direction: 'row', alignItems: 'center', width: 200, children: [
           inlineMetric('已用', optionalBytes(traffic.used)),
           { type: 'spacer' },
-          text('剩余天数', 8, C.dim, 'medium', { width: 72, textAlign: 'center' })
+          text('剩余天数', 8, C.dim, 'medium', { width: 72, textAlign: 'center' }),
+          { type: 'stack', width: 10, children: [] }
         ] },
         { type: 'stack', direction: 'row', alignItems: 'center', width: 200, children: [
           inlineMetric('到期', formatDate(traffic.expireAt), 0.68),
           { type: 'spacer' },
-          text(daysText, 12, C.text, 'semibold', { width: 72, textAlign: 'center', minScale: 0.72 })
+          text(daysText, 12, C.text, 'semibold', { width: 72, textAlign: 'center', minScale: 0.72 }),
+          { type: 'stack', width: 10, children: [] }
         ] },
         { type: 'spacer' },
         leadingLine(text(updateLabel(data), 9, C.dim, 'medium', { minScale: 0.7 }), 200)
