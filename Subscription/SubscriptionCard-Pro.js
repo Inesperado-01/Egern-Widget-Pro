@@ -240,15 +240,18 @@ function mediumWidget(data, ctx) {
   return { type: 'widget', backgroundColor: C.bg, padding: [13, 16, 13, 16], gap: 8, refreshAfter: refreshDate(ctx), children: [
     header(data),
     { type: 'stack', direction: 'row', alignItems: 'start', gap: 12, children: [
-      { type: 'stack', direction: 'column', gap: 5, width: 200, height: 112, children: [
+      { type: 'stack', direction: 'column', gap: 0, width: 200, height: 112, children: [
         leadingLine(text(formatBytes(traffic.remaining), 31, C.text, 'bold', { font: { size: 31, weight: 'bold', family: 'Menlo' }, minScale: 0.8 }), 200),
+        { type: 'stack', height: 2, children: [] },
         leadingLine(text('剩余流量', 11, C.dim, 'semibold'), 200),
+        { type: 'stack', height: 9, children: [] },
         { type: 'stack', direction: 'row', alignItems: 'center', width: 200, children: [
           inlineMetric('已用', optionalBytes(traffic.used)),
           { type: 'spacer' },
           text('剩余天数', 8, C.dim, 'medium', { width: 72, textAlign: 'center' }),
           { type: 'stack', width: 10, children: [] }
         ] },
+        { type: 'stack', height: 5, children: [] },
         { type: 'stack', direction: 'row', alignItems: 'center', width: 200, children: [
           inlineMetric('到期', formatDate(traffic.expireAt), 0.68),
           { type: 'spacer' },
