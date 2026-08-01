@@ -201,7 +201,6 @@ function progressOrNote(traffic, width) { return percentRemaining(traffic) == nu
 function metric(label, value) { return { type: 'stack', direction: 'column', gap: 2, flex: 1, children: [text(label, 9, C.dim, 'semibold'), text(value, 12, C.text, 'semibold', { minScale: 0.68 })] }; }
 function leadingLine(child, width) { return { type: 'stack', direction: 'row', width, children: [child, { type: 'spacer' }] }; }
 function inlineMetric(label, value, minScale = 0.72) { return { type: 'stack', direction: 'row', alignItems: 'center', gap: 4, children: [text(label, 10, C.dim, 'medium'), text(value, 10, C.text, 'semibold', { minScale })] }; }
-function daysMetric(value) { return { type: 'stack', direction: 'column', alignItems: 'center', gap: 1, width: 72, padding: [0, 0, 3, 0], children: [text('剩余天数', 8, C.dim, 'medium'), text(value, 12, C.text, 'semibold', { minScale: 0.72 })] }; }
 
 function bytesToBase64(bytes) {
   const alphabet = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/'; let output = '';
@@ -242,10 +241,18 @@ function mediumWidget(data, ctx) {
     header(data),
     { type: 'stack', direction: 'row', alignItems: 'start', gap: 12, children: [
       { type: 'stack', direction: 'column', gap: 5, width: 200, height: 112, children: [
-        leadingLine(text(formatBytes(traffic.remaining), 29, C.text, 'bold', { font: { size: 29, weight: 'bold', family: 'Menlo' }, minScale: 0.62 }), 200),
+        leadingLine(text(formatBytes(traffic.remaining), 31, C.text, 'bold', { font: { size: 31, weight: 'bold', family: 'Menlo' }, minScale: 0.8 }), 200),
         leadingLine(text('剩余流量', 11, C.dim, 'semibold'), 200),
-        { type: 'stack', direction: 'row', alignItems: 'end', width: 200, children: [inlineMetric('已用', optionalBytes(traffic.used)), { type: 'spacer' }, daysMetric(daysText)] },
-        leadingLine(inlineMetric('到期', formatDate(traffic.expireAt), 0.68), 200),
+        { type: 'stack', direction: 'row', alignItems: 'center', width: 200, children: [
+          inlineMetric('已用', optionalBytes(traffic.used)),
+          { type: 'spacer' },
+          text('剩余天数', 8, C.dim, 'medium', { width: 72, textAlign: 'center' })
+        ] },
+        { type: 'stack', direction: 'row', alignItems: 'center', width: 200, children: [
+          inlineMetric('到期', formatDate(traffic.expireAt), 0.68),
+          { type: 'spacer' },
+          text(daysText, 12, C.text, 'semibold', { width: 72, textAlign: 'center', minScale: 0.72 })
+        ] },
         { type: 'spacer' },
         leadingLine(text(updateLabel(data), 9, C.dim, 'medium', { minScale: 0.7 }), 200)
       ] },
