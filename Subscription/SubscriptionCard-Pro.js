@@ -10,6 +10,7 @@ const C = {
   text: { light: '#111114', dark: '#F7F7F8' },
   dim: { light: '#7B7B84', dark: '#96969F' },
   panel: { light: '#F5F5F7', dark: '#111114' },
+  hairline: { light: '#E4E4E8', dark: '#242429' },
   track: { light: '#E8E8ED', dark: '#202025' },
   accent: { light: '#7446D8', dark: '#B765FF' },
   ok: { light: '#2F9E58', dark: '#9DFF32' },
@@ -17,15 +18,16 @@ const C = {
   fail: { light: '#D64545', dark: '#FF626A' }
 };
 
+const GAUGE_API = 'https://quickchart.io/chart';
 const SHARED_CACHE_MS = 5 * 60 * 1000;
 
 function env(ctx) {
-  const map = {};
+  const values = {};
   for (const [key, value] of Object.entries(ctx.env || {})) {
-    map[String(key).toLowerCase()] = value;
+    values[String(key).toLowerCase()] = value;
   }
   return (key, fallback = '') => {
-    const value = map[String(key).toLowerCase()];
+    const value = values[String(key).toLowerCase()];
     return value == null || value === '' ? fallback : value;
   };
 }
@@ -96,7 +98,6 @@ function parseBodyInfo(body) {
   const totalMatch = source.match(/(?:总(?:流量|量)|套餐流量)[：:\s]*([0-9]+(?:\.[0-9]+)?)\s*(PB|TB|GB|MB|KB|B)/i);
   const usedMatch = source.match(/已用(?:流量)?[：:\s]*([0-9]+(?:\.[0-9]+)?)\s*(PB|TB|GB|MB|KB|B)/i);
   const expireMatch = source.match(/(?:有效期|到期(?:时间)?|过期(?:时间)?)[：:\s]*([12]\d{3}[-/.]\d{1,2}[-/.]\d{1,2})/i);
-
   const total = totalMatch ? unitBytes(totalMatch[1], totalMatch[2]) : null;
   const explicitUsed = usedMatch ? unitBytes(usedMatch[1], usedMatch[2]) : null;
   const used = Number.isFinite(explicitUsed)
@@ -177,7 +178,7 @@ async function fetchSubscription(ctx, url) {
         if (final) return final;
       }
     } catch {
-      // Continue with another common client identity.
+      // Continue with the next common client identity.
     }
   }
 
@@ -190,7 +191,7 @@ async function loadData(ctx) {
   const name = String(get('name1', 'SUBSCRIPTION')).trim();
   if (!url) return { mode: 'setup', name };
 
-  const key = `egern.widget.pro.subscription.v7.${hashString(url)}`;
+  const key = `egern.widget.pro.subscription.classic.v1.${hashString(url)}`;
   const cached = ctx.storage?.getJSON(key);
 
   if (cached?.traffic && Date.now() - Number(cached.updatedAt || 0) < SHARED_CACHE_MS) {
@@ -225,11 +226,15 @@ function percentRemaining(traffic) {
   return Math.max(0, Math.min(100, (traffic.remaining / traffic.total) * 100));
 }
 
-function formatPercent(traffic) {
-  const value = percentRemaining(traffic);
-  if (value == null) return traffic.unlimited ? '∞' : '--';
+function usedPercentValue(traffic) {
+  const remaining = percentRemaining(traffic);
+  return remaining == null ? null : Math.max(0, Math.min(100, 100 - remaining));
+}
+
+function formatPercentValue(value) {
+  if (!Number.isFinite(value)) return '--';
   if (value === 0 || value === 100) return `${value.toFixed(0)}%`;
-  return `${value.toFixed(2).replace(/0$/, '')}%`;
+  return `${value.toFixed(2).replace(/0+$/, '').replace(/\.$/, '')}%`;
 }
 
 function statusOf(data) {
@@ -305,14 +310,14 @@ function icon(name, color, size = 14) {
 function header(data, compact = false) {
   const status = statusOf(data);
   return {
-    type: 'stack', direction: 'row', alignItems: 'center', gap: compact ? 6 : 8,
+    type: 'stack', direction: 'row', alignItems: 'center', gap: compact ? 6 : 7,
     children: [
       icon('chart.pie.fill', C.accent, compact ? 14 : 15),
-      text(data.name || 'SUBSCRIPTION', compact ? 10 : 11, C.dim, 'bold', { minScale: 0.64 }),
+      text(data.name || 'SUBSCRIPTION', compact ? 10 : 11, C.dim, 'bold', { minScale: 0.62 }),
       { type: 'spacer' },
       {
-        type: 'stack', direction: 'row', alignItems: 'center', gap: compact ? 0 : 3,
-        padding: compact ? [3, 5] : [2, 5], backgroundColor: C.panel, borderRadius: 4,
+        type: 'stack', direction: 'row', alignItems: 'center', gap: compact ? 0 : 5,
+        padding: compact ? [3, 5] : [3, 7], backgroundColor: C.panel, borderRadius: 4,
         children: [
           { type: 'stack', width: 6, height: 6, borderRadius: 3, backgroundColor: status.color, children: [] },
           ...(compact ? [] : [text(status.label, 9, C.text, 'semibold')])
@@ -342,7 +347,7 @@ function progressOrNote(traffic, width) {
 
 function metric(label, value) {
   return {
-    type: 'stack', direction: 'column', gap: 3, flex: 1,
+    type: 'stack', direction: 'column', gap: 2, flex: 1,
     children: [
       text(label, 9, C.dim, 'semibold'),
       text(value, 12, C.text, 'semibold', { minScale: 0.68 })
@@ -350,14 +355,111 @@ function metric(label, value) {
   };
 }
 
-function mediumMetric(label, value) {
+function leadingLine(child, width) {
+  return { type: 'stack', direction: 'row', width, children: [child, { type: 'spacer' }] };
+}
+
+function inlineMetric(label, value, minScale = 0.72) {
   return {
-    type: 'stack', direction: 'column', alignItems: 'center', gap: 3, flex: 1,
+    type: 'stack', direction: 'row', alignItems: 'center', gap: 4,
     children: [
-      text(label, 10, C.dim, 'semibold'),
-      text(value, 13, C.text, 'bold', { minScale: 0.72 })
+      text(label, 10, C.dim, 'medium'),
+      text(value, 10, C.text, 'semibold', { minScale })
     ]
   };
+}
+
+function bytesToBase64(bytes) {
+  const alphabet = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/';
+  let output = '';
+  for (let i = 0; i < bytes.length; i += 3) {
+    const a = bytes[i];
+    const b = i + 1 < bytes.length ? bytes[i + 1] : 0;
+    const c = i + 2 < bytes.length ? bytes[i + 2] : 0;
+    const triple = (a << 16) | (b << 8) | c;
+    output += alphabet[(triple >> 18) & 63] + alphabet[(triple >> 12) & 63];
+    output += i + 1 < bytes.length ? alphabet[(triple >> 6) & 63] : '=';
+    output += i + 2 < bytes.length ? alphabet[triple & 63] : '=';
+  }
+  return output;
+}
+
+async function loadGaugeImage(ctx, traffic) {
+  const used = usedPercentValue(traffic);
+  if (used == null) return '';
+
+  const display = formatPercentValue(used);
+  const rounded = Number(used.toFixed(2));
+  const cacheKey = `egern.widget.pro.gauge.classic.v1.${rounded}`;
+  const cached = ctx.storage?.get(cacheKey);
+  if (cached) return cached;
+
+  const fontSize = display.length >= 7 ? 28 : display.length >= 6 ? 31 : 36;
+  const chart = {
+    type: 'doughnut',
+    data: {
+      datasets: [{
+        data: [Math.max(0.0001, used), Math.max(0.0001, 100 - used)],
+        backgroundColor: ['#7446D8', '#D0D0D8'],
+        borderColor: ['rgba(0,0,0,0)', 'rgba(0,0,0,0)'],
+        borderWidth: 1
+      }]
+    },
+    options: {
+      responsive: false,
+      animation: false,
+      rotation: 2.35619449,
+      circumference: 4.71238898,
+      cutoutPercentage: 82,
+      legend: { display: false },
+      tooltips: { enabled: false },
+      plugins: {
+        datalabels: { display: false },
+        doughnutlabel: {
+          labels: [
+            { text: ' ', font: { size: 12 }, color: 'rgba(0,0,0,0)' },
+            { text: display, font: { size: fontSize, weight: 'bold', family: 'Helvetica Neue' }, color: '#7446D8' },
+            { text: '已用', font: { size: 14, family: 'Helvetica Neue' }, color: '#7B7B84' }
+          ]
+        }
+      }
+    }
+  };
+
+  const response = await ctx.http.post(GAUGE_API, {
+    timeout: 8000,
+    headers: { 'Content-Type': 'application/json' },
+    body: {
+      version: '2', width: 280, height: 200, devicePixelRatio: 2,
+      format: 'png', backgroundColor: 'transparent', chart
+    }
+  });
+  if (response.status < 200 || response.status >= 300) throw new Error(`Gauge HTTP ${response.status}`);
+
+  const bytes = new Uint8Array(await response.arrayBuffer());
+  if (!bytes.length) throw new Error('Gauge image is empty');
+  const dataUri = `data:image/png;base64,${bytesToBase64(bytes)}`;
+  ctx.storage?.set(cacheKey, dataUri);
+  return dataUri;
+}
+
+function fallbackGauge(traffic, size = 108) {
+  const used = usedPercentValue(traffic);
+  return {
+    type: 'stack', direction: 'column', alignItems: 'center', width: size, height: size, gap: 3,
+    children: [
+      { type: 'spacer' },
+      icon('gauge.with.dots.needle.33percent', C.accent, 52),
+      text(used == null ? '--' : formatPercentValue(used), 15, C.text, 'bold', { minScale: 0.68 }),
+      text('已用', 9, C.dim, 'semibold'),
+      { type: 'spacer' }
+    ]
+  };
+}
+
+function gaugeView(data, traffic, size = 108) {
+  if (!data.gaugeImage) return fallbackGauge(traffic, size);
+  return { type: 'image', src: data.gaugeImage, width: size + 18, height: size, resizeMode: 'contain' };
 }
 
 function emptyWidget(data, family, ctx) {
@@ -382,6 +484,62 @@ function emptyWidget(data, family, ctx) {
   };
 }
 
+function mediumWidget(data, ctx) {
+  if (!data.traffic) return emptyWidget(data, 'systemMedium', ctx);
+  const traffic = data.traffic;
+  const days = daysRemaining(traffic.expireAt);
+  const daysText = days == null ? '长期' : `${Math.max(0, days)} 天`;
+
+  return {
+    type: 'widget',
+    backgroundColor: C.bg,
+    padding: [13, 16, 13, 16],
+    gap: 8,
+    refreshAfter: refreshDate(ctx),
+    children: [
+      header(data),
+      {
+        type: 'stack', direction: 'row', alignItems: 'start', gap: 12,
+        children: [
+          {
+            type: 'stack', direction: 'column', gap: 5, width: 200, height: 112,
+            children: [
+              leadingLine(text(formatBytes(traffic.remaining), 27, C.text, 'bold', {
+                font: { size: 27, weight: 'bold', family: 'Menlo' }, minScale: 0.62
+              }), 200),
+              leadingLine(text('剩余流量', 10, C.dim, 'medium'), 200),
+              {
+                type: 'stack', direction: 'row', alignItems: 'center', width: 200,
+                children: [
+                  inlineMetric('已用', optionalBytes(traffic.used)),
+                  { type: 'spacer' },
+                  inlineMetric('剩余', daysText)
+                ]
+              },
+              leadingLine(inlineMetric('到期', formatDate(traffic.expireAt), 0.68), 200),
+              { type: 'spacer' },
+              leadingLine(text(updateLabel(data), 9, C.dim, 'medium', { minScale: 0.7 }), 200)
+            ]
+          },
+          {
+            type: 'stack', direction: 'column', alignItems: 'center', gap: 2, width: 118, height: 112,
+            children: [
+              gaugeView(data, traffic, 100),
+              {
+                type: 'stack', direction: 'row', alignItems: 'center', gap: 4,
+                children: [
+                  text('套餐', 9, C.dim, 'semibold'),
+                  text(totalLabel(traffic), 9, C.text, 'semibold', { minScale: 0.68 })
+                ]
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  };
+}
+
 function smallWidget(data, ctx) {
   if (!data.traffic) return emptyWidget(data, 'systemSmall', ctx);
   const traffic = data.traffic;
@@ -398,67 +556,12 @@ function smallWidget(data, ctx) {
         type: 'stack', direction: 'row', children: [
           text('剩余流量', 10, C.dim, 'medium'),
           { type: 'spacer' },
-          text(formatPercent(traffic), 10, C.text, 'semibold')
+          text(formatPercentValue(percentRemaining(traffic)), 10, C.text, 'semibold')
         ]
       },
-      { type: 'stack', height: 2, children: [] },
       progressOrNote(traffic, 126),
       { type: 'spacer' },
-      text(`到期 ${formatDate(traffic.expireAt)}`, 9, C.dim, 'medium', { minScale: 0.7 })
-    ]
-  };
-}
-
-function mediumWidget(data, ctx) {
-  if (!data.traffic) return emptyWidget(data, 'systemMedium', ctx);
-  const traffic = data.traffic;
-  const days = daysRemaining(traffic.expireAt);
-  const daysText = days == null ? '长期' : `${Math.max(0, days)} 天`;
-
-  return {
-    type: 'widget', backgroundColor: C.bg, padding: [13, 16], gap: 7,
-    refreshAfter: refreshDate(ctx),
-    children: [
-      header(data),
-      {
-        type: 'stack', direction: 'row', alignItems: 'end', gap: 12,
-        children: [
-          {
-            type: 'stack', direction: 'column', alignItems: 'start', gap: 2, flex: 1,
-            children: [
-              text(formatBytes(traffic.remaining), 29, C.text, 'bold', {
-                font: { size: 29, weight: 'bold', family: 'Menlo' }, minScale: 0.62
-              }),
-              text('剩余流量', 10, C.dim, 'semibold')
-            ]
-          },
-          {
-            type: 'stack', direction: 'column', alignItems: 'end', gap: 2,
-            children: [
-              text(formatPercent(traffic), 16, C.text, 'bold', { minScale: 0.72 }),
-              text('剩余比例', 9, C.dim, 'semibold')
-            ]
-          }
-        ]
-      },
-      progressOrNote(traffic, 320),
-      { type: 'stack', height: 2, children: [] },
-      {
-        type: 'stack', direction: 'row', gap: 12,
-        children: [
-          mediumMetric('已用', optionalBytes(traffic.used)),
-          mediumMetric('套餐总量', totalLabel(traffic)),
-          mediumMetric('剩余天数', daysText)
-        ]
-      },
-      { type: 'stack', height: 3, children: [] },
-      {
-        type: 'stack', direction: 'row', children: [
-          text(updateLabel(data), 9, C.dim, 'medium'),
-          { type: 'spacer' },
-          text(`到期 ${formatDate(traffic.expireAt)}`, 9, C.dim, 'semibold')
-        ]
-      }
+      text(`到期 ${formatDate(traffic.expireAt)}`, 9, C.dim, 'medium')
     ]
   };
 }
@@ -467,20 +570,18 @@ function largeWidget(data, ctx) {
   if (!data.traffic) return emptyWidget(data, 'systemLarge', ctx);
   const traffic = data.traffic;
   const days = daysRemaining(traffic.expireAt);
-  const daily = days && days > 0 && Number.isFinite(traffic.remaining)
-    ? traffic.remaining / days
-    : null;
+  const daily = days && days > 0 && Number.isFinite(traffic.remaining) ? traffic.remaining / days : null;
 
   return {
-    type: 'widget', backgroundColor: C.bg, padding: 16, gap: 7,
+    type: 'widget', backgroundColor: C.bg, padding: 16, gap: 10,
     refreshAfter: refreshDate(ctx),
     children: [
       header(data),
       {
-        type: 'stack', direction: 'row', alignItems: 'center', gap: 10,
-        padding: [10, 12], backgroundColor: C.panel, borderRadius: 8,
+        type: 'stack', direction: 'row', alignItems: 'center', gap: 12,
+        padding: [11, 14], backgroundColor: C.panel, borderRadius: 8,
         children: [
-          icon('arrow.up.arrow.down.circle.fill', C.accent, 24),
+          icon('arrow.up.arrow.down.circle.fill', C.accent, 28),
           {
             type: 'stack', direction: 'column', gap: 2, flex: 1,
             children: [
@@ -490,11 +591,10 @@ function largeWidget(data, ctx) {
               text('剩余流量', 10, C.dim, 'medium')
             ]
           },
-          text(formatPercent(traffic), 15, C.text, 'bold')
+          text(formatPercentValue(percentRemaining(traffic)), 18, C.text, 'bold')
         ]
       },
       progressOrNote(traffic, 300),
-      { type: 'stack', height: 4, children: [] },
       {
         type: 'stack', direction: 'row', gap: 12,
         children: [
@@ -503,7 +603,7 @@ function largeWidget(data, ctx) {
           metric('合计已用', optionalBytes(traffic.used))
         ]
       },
-      { type: 'stack', height: 7, children: [] },
+      { type: 'stack', height: 1, backgroundColor: C.hairline, children: [] },
       {
         type: 'stack', direction: 'row', gap: 12,
         children: [
@@ -538,7 +638,7 @@ function lockWidget(data, family) {
   if (family === 'accessoryInline') {
     return {
       type: 'widget',
-      children: [text(`剩余 ${remaining} · ${formatPercent(traffic)}`, 12, C.text, 'semibold')]
+      children: [text(`剩余 ${remaining} · ${formatPercentValue(percentRemaining(traffic))}`, 12, C.text, 'semibold')]
     };
   }
 
@@ -547,7 +647,7 @@ function lockWidget(data, family) {
       type: 'widget', padding: 4,
       children: [
         icon('chart.pie.fill', C.text, 15),
-        text(formatPercent(traffic), 12, C.text, 'bold', { textAlign: 'center' })
+        text(formatPercentValue(percentRemaining(traffic)), 12, C.text, 'bold', { textAlign: 'center' })
       ]
     };
   }
@@ -567,6 +667,14 @@ function lockWidget(data, family) {
 export default async function(ctx) {
   const data = await loadData(ctx);
   const family = ctx.widgetFamily || 'systemMedium';
+
+  if (family === 'systemMedium' && data.traffic) {
+    try {
+      data.gaugeImage = await loadGaugeImage(ctx, data.traffic);
+    } catch {
+      data.gaugeImage = '';
+    }
+  }
 
   if (family.startsWith('accessory')) return lockWidget(data, family);
   if (family === 'systemSmall') return smallWidget(data, ctx);
