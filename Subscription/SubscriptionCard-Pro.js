@@ -372,8 +372,9 @@ function inlineMetric(label, value, minScale = 0.72) {
 function daysMetric(value) {
   return {
     type: 'stack', direction: 'column', alignItems: 'center', gap: 1, width: 72,
+    padding: [0, 0, 3, 0],
     children: [
-      text('剩余天数', 9, C.dim, 'medium'),
+      text('剩余天数', 8, C.dim, 'medium'),
       text(value, 12, C.text, 'semibold', { minScale: 0.72 })
     ]
   };
@@ -400,7 +401,7 @@ async function loadGaugeImage(ctx, traffic) {
 
   const display = formatPercentValue(used);
   const rounded = Number(used.toFixed(2));
-  const cacheKey = `egern.widget.pro.gauge.classic.v2.${rounded}`;
+  const cacheKey = `egern.widget.pro.gauge.classic.v3.${rounded}`;
   const cached = ctx.storage?.get(cacheKey);
   if (cached) return cached;
 
@@ -429,7 +430,8 @@ async function loadGaugeImage(ctx, traffic) {
           labels: [
             { text: ' ', font: { size: 12 }, color: 'rgba(0,0,0,0)' },
             { text: display, font: { size: fontSize, weight: 'bold', family: 'Helvetica Neue' }, color: '#7446D8' },
-            { text: '已用', font: { size: 18, weight: 'bold', family: 'Helvetica Neue' }, color: '#7B7B84' }
+            { text: ' ', font: { size: 5 }, color: 'rgba(0,0,0,0)' },
+            { text: '已用', font: { size: 20, weight: 'bold', family: 'Helvetica Neue' }, color: '#7B7B84' }
           ]
         }
       }
@@ -456,12 +458,12 @@ async function loadGaugeImage(ctx, traffic) {
 function fallbackGauge(traffic, size = 108) {
   const used = usedPercentValue(traffic);
   return {
-    type: 'stack', direction: 'column', alignItems: 'center', width: size, height: size, gap: 3,
+    type: 'stack', direction: 'column', alignItems: 'center', width: size, height: size, gap: 5,
     children: [
       { type: 'spacer' },
       icon('gauge.with.dots.needle.33percent', C.accent, 52),
       text(used == null ? '--' : formatPercentValue(used), 15, C.text, 'bold', { minScale: 0.68 }),
-      text('已用', 11, C.dim, 'semibold'),
+      text('已用', 12, C.dim, 'semibold'),
       { type: 'spacer' }
     ]
   };
@@ -528,7 +530,8 @@ function mediumWidget(data, ctx) {
               },
               leadingLine(inlineMetric('到期', formatDate(traffic.expireAt), 0.68), 200),
               { type: 'spacer' },
-              leadingLine(text(updateLabel(data), 9, C.dim, 'medium', { minScale: 0.7 }), 200)
+              leadingLine(text(updateLabel(data), 9, C.dim, 'medium', { minScale: 0.7 }), 200),
+              { type: 'stack', height: 2, children: [] }
             ]
           },
           {
