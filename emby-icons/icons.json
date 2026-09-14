@@ -1,0 +1,10 @@
+{
+  "name": "Emby 自用图标库",
+  "description": "Custom icons for EPlayerX / Emby",
+  "icons": [
+    {
+      "name": "Blue Panda",
+      "url": "https://raw.githubusercontent.com/Inesperado-01/Egern-Widget-Pro/main/emby-icons/images/panda-blue.jpg"
+    }
+  ]
+}
